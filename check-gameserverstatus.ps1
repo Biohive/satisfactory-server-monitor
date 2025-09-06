@@ -30,7 +30,7 @@
 [CmdletBinding()]
 param(
     [string]$ServerUrl = "https://twinswords.bullfrogit.net:25571",
-    [string]$Password = "+_XWuQtg@yNe",
+    [string]$Password = "",
     [ValidateSet("Console", "JSON", "CSV")]
     [string]$OutputFormat = "Console",
     [switch]$Help
