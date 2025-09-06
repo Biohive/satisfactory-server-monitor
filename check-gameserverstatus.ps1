@@ -31,7 +31,7 @@
 param(
     [string]$ServerUrl = "https://twinswords.bullfrogit.net:25571",
     [Parameter(Mandatory=$true)]
-    [SecureString]$Password,
+    [String]$Password,
     [ValidateSet("Console", "JSON", "CSV")]
     [string]$OutputFormat = "Console",
     [switch]$Help
@@ -60,22 +60,7 @@ function Invoke-SatisfactoryAPI {
     )
     
     try {
-        # Disable SSL certificate validation for self-signed certificates
-        # This is necessary for Windows PowerShell 5.1 compatibility
-        if (-not ([System.Management.Automation.PSTypeName]'TrustAllCertsPolicy').Type) {
-            Add-Type @"
-                using System.Net;
-                using System.Security.Cryptography.X509Certificates;
-                public class TrustAllCertsPolicy : ICertificatePolicy {
-                    public bool CheckValidationResult(
-                        ServicePoint srvPoint, X509Certificate certificate,
-                        WebRequest request, int certificateProblem) {
-                        return true;
-                    }
-                }
-"@
-        }
-        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        # Set TLS 1.2
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
         
         $headers = @{
@@ -88,11 +73,15 @@ function Invoke-SatisfactoryAPI {
         
         $bodyJson = if ($Body) { $Body | ConvertTo-Json -Depth 10 } else { $null }
         
-        $response = Invoke-RestMethod -Uri $Uri -Method $Method -Body $bodyJson -Headers $headers
+        # Using -SkipCertificateCheck which is available in PowerShell 7+
+        $response = Invoke-RestMethod -Uri $Uri -Method $Method -Body $bodyJson -Headers $headers -SkipCertificateCheck
         return $response
     }
     catch {
         Write-Error "API call failed: $($_.Exception.Message)"
+        if ($_.Exception.InnerException) {
+            Write-Error "Inner Exception: $($_.Exception.InnerException.Message)"
+        }
         throw
     }
 }
@@ -101,12 +90,12 @@ function Invoke-SatisfactoryAPI {
 function Get-AuthenticationToken {
     param(
         [string]$ServerUrl,
-        [string]$Password
+        [String]$Password
     )
     
     Write-ColorOutput "Authenticating with server..." "Yellow"
     
-    $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password))
+    $plainPassword = $Password
     $authBody = @{
         function = "PasswordLogin"
         data = @{
@@ -115,13 +104,21 @@ function Get-AuthenticationToken {
         }
     }
     
+    Write-Verbose "Sending authentication request to $ServerUrl/api/v1"
     $authResponse = Invoke-SatisfactoryAPI -Uri "$ServerUrl/api/v1" -Body $authBody
+    
+    Write-Verbose "Auth response: $($authResponse | ConvertTo-Json -Depth 3)"
     
     if ($authResponse.data.authenticationToken) {
         Write-ColorOutput "Authentication successful!" "Green"
         return $authResponse.data.authenticationToken
     }
+    elseif ($authResponse.errorCode -eq "wrong_password") {
+        Write-ColorOutput "ERROR: Incorrect password. Please check your password and try again." "Red"
+        throw "Authentication failed - incorrect password"
+    }
     else {
+        Write-ColorOutput "Authentication response: $($authResponse | ConvertTo-Json -Depth 3)" "Red"
         throw "Authentication failed - no token received"
     }
 }
@@ -130,7 +127,7 @@ function Get-AuthenticationToken {
 function Get-ServerState {
     param(
         [string]$ServerUrl,
-    [SecureString]$Password
+        [string]$AuthToken
     )
     
     $stateBody = @{
