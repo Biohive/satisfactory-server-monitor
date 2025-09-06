@@ -10,7 +10,7 @@
     The base URL of the Satisfactory server API (default: https://twinswords.bullfrogit.net:25571)
 
 .PARAMETER Password
-    The administrator password for the server
+    The administrator password for the server (will be securely prompted)
 
 .PARAMETER OutputFormat
     Output format: Console (default), JSON, or CSV
@@ -30,7 +30,8 @@
 [CmdletBinding()]
 param(
     [string]$ServerUrl = "https://twinswords.bullfrogit.net:25571",
-    [string]$Password = "",
+    [Parameter(Mandatory=$true)]
+    [SecureString]$Password,
     [ValidateSet("Console", "JSON", "CSV")]
     [string]$OutputFormat = "Console",
     [switch]$Help
@@ -105,11 +106,12 @@ function Get-AuthenticationToken {
     
     Write-ColorOutput "Authenticating with server..." "Yellow"
     
+    $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password))
     $authBody = @{
         function = "PasswordLogin"
         data = @{
             MinimumPrivilegeLevel = "Administrator"
-            Password = $Password
+            Password = $plainPassword
         }
     }
     
@@ -128,7 +130,7 @@ function Get-AuthenticationToken {
 function Get-ServerState {
     param(
         [string]$ServerUrl,
-        [string]$AuthToken
+    [SecureString]$Password
     )
     
     $stateBody = @{
