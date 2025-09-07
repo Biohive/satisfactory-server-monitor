@@ -63,6 +63,23 @@ function Invoke-SatisfactoryAPI {
         # Set TLS 1.2
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
         
+        # For PowerShell 5.1, we need to disable certificate validation manually
+        if ($PSVersionTable.PSVersion.Major -lt 6) {
+            # Disable certificate validation for PowerShell 5.1
+            add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+        
         $headers = @{
             "Content-Type" = "application/json"
         }
@@ -73,8 +90,12 @@ function Invoke-SatisfactoryAPI {
         
         $bodyJson = if ($Body) { $Body | ConvertTo-Json -Depth 10 } else { $null }
         
-        # Using -SkipCertificateCheck which is available in PowerShell 7+
-        $response = Invoke-RestMethod -Uri $Uri -Method $Method -Body $bodyJson -Headers $headers -SkipCertificateCheck
+        # Use -SkipCertificateCheck for PowerShell 6+ or manual certificate handling for 5.1
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            $response = Invoke-RestMethod -Uri $Uri -Method $Method -Body $bodyJson -Headers $headers -SkipCertificateCheck
+        } else {
+            $response = Invoke-RestMethod -Uri $Uri -Method $Method -Body $bodyJson -Headers $headers
+        }
         return $response
     }
     catch {
