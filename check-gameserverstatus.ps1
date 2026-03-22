@@ -7,7 +7,7 @@
     various status information including server state, player count, and session information.
 
 .PARAMETER ServerUrl
-    The base URL of the Satisfactory server API (default: https://twinswords.bullfrogit.net:25571)
+    The base URL of the Satisfactory server API (default: https://sat.ganlabs.net:7777)
 
 .PARAMETER Password
     The administrator password for the server (will be securely prompted)
@@ -29,7 +29,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$ServerUrl = "https://twinswords.bullfrogit.net:25571",
+    [string]$ServerUrl = "https://sat.ganlabs.net:7777",
     [Parameter(Mandatory=$true)]
     [String]$Password,
     [ValidateSet("Console", "JSON", "CSV")]
@@ -313,7 +313,7 @@ USAGE:
     .\check-gameserverstatus.ps1 [-ServerUrl <url>] [-Password <password>] [-OutputFormat <format>] [-Help]
 
 PARAMETERS:
-    -ServerUrl     Server API URL (default: https://twinswords.bullfrogit.net:25571)
+    -ServerUrl     Server API URL (default: https://sat.ganlabs.net:7777)
     -Password      Administrator password
     -OutputFormat  Output format: Console, JSON, or CSV (default: Console)
     -Help          Show this help message
